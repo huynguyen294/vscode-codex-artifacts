@@ -1,0 +1,94 @@
+{
+  "name": "codex-artifacts",
+  "displayName": "Codex Artifacts",
+  "publisher": "agent-plus-local",
+  "description": "Review Codex plan artifacts and send annotated feedback to the originating Codex conversation.",
+  "version": "0.2.6",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "vscode": ">=1.95.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "extensionKind": [
+    "workspace"
+  ],
+  "activationEvents": [
+    "onStartupFinished",
+    "onCustomEditor:agentPlus.planReview",
+    "onCommand:agentPlus.openPlanReview",
+    "onCommand:agentPlus.installWorkspaceIntegration",
+    "onCommand:agentPlus.verifyGlobalIntegration"
+  ],
+  "main": "./dist/extension.cjs",
+  "contributes": {
+    "commands": [
+      {
+        "command": "agentPlus.openPlanReview",
+        "title": "Codex Artifacts: Open Plan Review"
+      },
+      {
+        "command": "agentPlus.installWorkspaceIntegration",
+        "title": "Codex Artifacts: Install Global Codex Integration"
+      },
+      {
+        "command": "agentPlus.verifyGlobalIntegration",
+        "title": "Codex Artifacts: Verify Codex Integration"
+      }
+    ],
+    "customEditors": [
+      {
+        "viewType": "agentPlus.planReview",
+        "displayName": "Plan Review",
+        "selector": [
+          {
+            "filenamePattern": "**/.codex-artifacts/plans/**/plan.md"
+          }
+        ],
+        "priority": "default"
+      }
+    ],
+    "configuration": {
+      "title": "Codex Artifacts",
+      "properties": {
+        "agentPlus.autoOpenPlanReview": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically open a Plan Review after Codex finishes creating a plan artifact."
+        },
+        "agentPlus.codexCommand": {
+          "type": "string",
+          "default": "codex",
+          "description": "Codex CLI executable used to start the App Server."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "npm run build:extension && npm run build:webview",
+    "build:extension": "esbuild src/extension/extension.ts --bundle --minify --platform=node --format=cjs --external:vscode --outfile=dist/extension.cjs",
+    "build:webview": "vite build",
+    "check": "tsc --noEmit",
+    "test": "vitest run --configLoader native",
+    "package": "npm run build && vsce package --allow-missing-repository --out releases/ && vsce package --allow-missing-repository --out releases/codex-artifacts.vsix",
+    "pack": "npm run package"
+  },
+  "devDependencies": {
+    "@types/node": "^26.4.0",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.5",
+    "@types/vscode": "^1.95.0",
+    "@vitejs/plugin-react": "^6.1.0",
+    "@vscode/vsce": "^3.9.2",
+    "esbuild": "^0.28.2",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "typescript": "^7.0.2",
+    "vite": "^8.2.2",
+    "vitest": "^4.1.11",
+    "zod": "^4.4.3"
+  }
+}
