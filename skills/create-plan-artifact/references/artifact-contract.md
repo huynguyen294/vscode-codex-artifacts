@@ -70,6 +70,7 @@ When revising from `comments.json`:
 The VS Code extension creates `review-submission.json` exactly once for an artifact. Codex must never write or modify it. The `wait_for_plan_review` MCP tool validates this file and returns one of:
 
 - `revise`: read every comment and create a replacement artifact.
-- `approve`: leave the review loop and continue in the current native Codex chat.
+- `approve`: read any remaining comments, leave the review loop, and continue implementation in the current native Codex chat.
+- `save`: ask the user for a workspace destination, save a copy of the plan there, and finish without implementing it.
 
 The submission binds the decision to the artifact ID, origin thread ID, plan hash, and comments hash. Any content change after submission invalidates the lifecycle.

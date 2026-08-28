@@ -17,7 +17,7 @@ VS Code custom editor
    └─ React webview: rendering, selection, comment and decision UI
                          │
                          ▼
-Codex Artifacts MCP ── returns revise/approve to the waiting native Codex turn
+Codex Artifacts MCP ── returns revise/approve/save to the waiting native Codex turn
 ```
 
 `src/shared` is the only message and file-contract boundary. Zod validates data entering the extension host; TypeScript types are reused by the React webview.
@@ -52,9 +52,9 @@ When upgrading from Agent Plus, setup removes the legacy hook entry and generate
 ## Review decision sequence
 
 1. The skill creates and validates an artifact, then calls MCP `wait_for_plan_review` without ending the Codex turn.
-2. React posts `submitReview` with `revise` or `approve` to the extension host.
+2. React posts `submitReview` with `revise`, `approve`, or `save` to the extension host.
 3. The store reloads and validates all artifact files.
 4. The extension atomically creates `review-submission.json`.
 5. The MCP file watcher validates the artifact ID, origin thread ID, and content hashes.
 6. The pending MCP tool call returns the decision to the same Codex turn.
-7. On `revise`, Codex creates a replacement artifact and waits again. On `approve`, Codex returns control to the native chat.
+7. On `revise`, Codex creates a replacement artifact and waits again. On `approve`, Codex applies any remaining comments and starts implementation. On `save`, Codex asks for a workspace destination, saves the plan, and finishes without implementing it.

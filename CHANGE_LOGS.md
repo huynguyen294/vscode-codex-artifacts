@@ -2,6 +2,25 @@
 
 Tất cả các thay đổi quan trọng của dự án **Codex Artifacts** (`agent-plus`) sẽ được ghi nhận tại tài liệu này.
 
+Lịch sử phát hành được chuẩn hóa và bắt đầu ghi nhận lại từ phiên bản **0.2.6**. Các gói build mang số phiên bản thấp hơn không được xem là một phần của changelog chính thức này.
+
+---
+
+## [0.2.7] - 2026-08-28
+
+### 🐛 Sửa lỗi
+- Bỏ thông báo `Plan saved` ngay sau khi chọn **Just save**, vì ở thời điểm đó Codex chưa nhận vị trí đích và chưa tạo bản sao kế hoạch.
+- Siết validation của MCP khi nhận submission: đọc lại và kiểm tra `schemaVersion`, `artifactId`, plan hash, cấu trúc comments và từng comment hiện tại trước khi trả quyết định về Codex.
+- Sửa màu icon copy Markdown: dấu tích sau khi copy dùng màu thành công; màu lỗi đỏ chỉ còn áp dụng cho nút xóa comment.
+
+### 📚 Contract & tài liệu
+- Đồng bộ đầy đủ ba quyết định `revise`, `approve`, `save` trong MCP metadata, skill contract, README và tài liệu kiến trúc.
+- Cập nhật hướng dẫn cho các nút **Review**, **Proceed** và **Just save** theo đúng hành vi runtime.
+- Ghi nhận việc ngăn submit khi comment draft chưa được lưu vào `TODO.md`; hành vi này chưa được thay đổi trong phiên bản này.
+
+### ✅ Kiểm thử
+- Bổ sung regression test cho trường hợp `comments.json` bị thay đổi sai schema trong khi MCP đang chờ, kể cả khi submission chứa hash khớp với nội dung sai đó.
+
 ---
 
 ## [0.2.6] - 2026-08-28
@@ -31,12 +50,3 @@ Tất cả các thay đổi quan trọng của dự án **Codex Artifacts** (`ag
   - Bỏ kiểm tra bắt buộc xóa hết comment khi duyệt (`approve`/Proceed) và khi chỉ lưu (`save`).
 - **Cập nhật Codex Skill (`create-plan-artifact`)**:
   - Hướng dẫn AI xử lý chi tiết cho cả 3 kịch bản: `revise`, `approve` (Proceed), và `save`.
-
----
-
-## [0.2.4] - 2026-08-27
-
-### Khởi tạo & Tích hợp
-- Hỗ trợ xem xét và review kế hoạch trực tiếp qua VS Code Custom Editor.
-- Tích hợp STDIO MCP Server `wait_for_plan_review` để giữ kết nối với lượt chat Codex.
-- Tự động đóng dấu `origin.threadId` qua hook toàn cục của Codex.

@@ -41,7 +41,7 @@ async function showIntegrationStatus(status: IntegrationCheck, codexCommand: str
 
 export function activate(context: vscode.ExtensionContext): void {
   const codexCommand = vscode.workspace.getConfiguration("agentPlus").get<string>("codexCommand", "codex");
-  const extensionVersion = String(context.extension.packageJSON.version ?? "0.2.0");
+  const extensionVersion = String(context.extension.packageJSON.version ?? "0.2.7");
   const appServer = new CodexAppServerClient(codexCommand, extensionVersion);
   const provider = new PlanReviewProvider(context);
 

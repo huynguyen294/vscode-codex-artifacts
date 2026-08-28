@@ -173,7 +173,7 @@ export function App(): ReactNode {
             decision === "revise"
               ? "Review comments returned to the waiting Codex turn."
               : decision === "save"
-                ? "Plan saved. Codex will ask where to store it."
+                ? undefined
                 : "Plan approved. Return to the Codex chat to continue.",
           );
         } else {
@@ -245,7 +245,7 @@ export function App(): ReactNode {
         </div>
         <div className="topbar-actions">
           <button
-            className="icon-button copy-button"
+            className={`icon-button copy-button${copied ? " copied" : ""}`}
             onClick={handleCopyMarkdown}
             aria-label={copied ? "Copied" : "Copy Markdown"}
             title={copied ? "Copied!" : "Copy Markdown"}
@@ -324,7 +324,7 @@ export function App(): ReactNode {
                 <div className="comment-meta">
                   <span>#{index + 1}{comment.block.heading ? ` · ${comment.block.heading}` : ""}</span>
                   <button
-                    className="icon-button"
+                    className="icon-button delete-comment-button"
                     disabled={isSubmitted}
                     aria-label="Delete comment"
                     title="Delete comment"

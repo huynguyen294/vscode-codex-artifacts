@@ -61,9 +61,13 @@ export class PlanReviewProvider implements vscode.CustomTextEditorProvider {
               const text = message.decision === "revise"
                 ? "Review comments returned to the waiting Codex turn."
                 : message.decision === "save"
-                  ? "Plan saved. Codex will ask where to store it."
+                  ? undefined
                   : "Plan approved. Return to the Codex chat to continue.";
-              await post({ type: "sendState", status: "submitted", message: text });
+              await post({
+                type: "sendState",
+                status: "submitted",
+                ...(text ? { message: text } : {}),
+              });
             } catch (error) {
               await post({
                 type: "sendState",

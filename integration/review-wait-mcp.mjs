@@ -29,6 +29,56 @@ function requireObject(value, label) {
   return value;
 }
 
+function isNonEmptyString(value) {
+  return typeof value === "string" && value.length > 0;
+}
+
+function isIsoDateTime(value) {
+  return typeof value === "string"
+    && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(value)
+    && Number.isFinite(Date.parse(value));
+}
+
+function isUuid(value) {
+  return typeof value === "string"
+    && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function validateReviewComment(rawComment, index) {
+  const label = `comments.json comments[${index}]`;
+  const comment = requireObject(rawComment, label);
+  const block = requireObject(comment.block, `${label}.block`);
+  const selection = requireObject(comment.selection, `${label}.selection`);
+  const blockTypes = new Set(["heading", "paragraph", "list-item", "quote", "code"]);
+  if (!isUuid(comment.id) || !isIsoDateTime(comment.createdAt) || !isNonEmptyString(comment.body)) {
+    throw new Error(`${label} is invalid.`);
+  }
+  if (!isNonEmptyString(block.id) || !blockTypes.has(block.type) || (block.heading !== null && typeof block.heading !== "string")) {
+    throw new Error(`${label}.block is invalid.`);
+  }
+  if (
+    !isNonEmptyString(selection.quote)
+    || !Number.isInteger(selection.start)
+    || selection.start < 0
+    || !Number.isInteger(selection.end)
+    || selection.end <= selection.start
+    || typeof selection.prefix !== "string"
+    || typeof selection.suffix !== "string"
+  ) {
+    throw new Error(`${label}.selection is invalid.`);
+  }
+}
+
+function validateCommentsDocument(rawComments, artifactId, planSha256) {
+  const comments = requireObject(rawComments, "comments.json");
+  if (comments.schemaVersion !== 1 || comments.artifactId !== artifactId || comments.planSha256 !== planSha256) {
+    throw new Error("comments.json does not match this plan artifact.");
+  }
+  if (!Array.isArray(comments.comments)) throw new Error("comments.json has an invalid comments array.");
+  comments.comments.forEach(validateReviewComment);
+  return comments;
+}
+
 async function loadArtifactContext(rawDirectory) {
   if (typeof rawDirectory !== "string" || !path.isAbsolute(rawDirectory)) {
     throw new Error("artifactDirectory must be an absolute path.");
@@ -43,7 +93,6 @@ async function loadArtifactContext(rawDirectory) {
     fs.readFile(commentsPath, "utf8"),
   ]);
   const manifest = requireObject(manifestRaw, "artifact.json");
-  const comments = requireObject(JSON.parse(commentsRaw), "comments.json");
   const artifactId = manifest.artifactId;
   const threadId = manifest.origin?.threadId;
   const cwd = manifest.origin?.cwd;
@@ -58,10 +107,7 @@ async function loadArtifactContext(rawDirectory) {
     throw new Error("artifactDirectory does not match the artifact origin and id.");
   }
   const planSha256 = sha256(plan);
-  if (comments.schemaVersion !== 1 || comments.artifactId !== artifactId || comments.planSha256 !== planSha256) {
-    throw new Error("comments.json does not match this plan artifact.");
-  }
-  if (!Array.isArray(comments.comments)) throw new Error("comments.json has an invalid comments array.");
+  const comments = validateCommentsDocument(JSON.parse(commentsRaw), artifactId, planSha256);
   return {
     artifactDirectory,
     artifactId,
@@ -99,16 +145,17 @@ async function readValidatedSubmission(context) {
     throw new Error("The plan or comments changed after review submission.");
   }
 
-  const currentComments = requireObject(JSON.parse(currentCommentsRaw), "comments.json");
-  if (currentComments.planSha256 !== currentPlanSha256) {
-    throw new Error("comments.json does not match this plan artifact.");
-  }
-  const commentCount = Array.isArray(currentComments.comments) ? currentComments.comments.length : 0;
+  const currentComments = validateCommentsDocument(
+    JSON.parse(currentCommentsRaw),
+    context.artifactId,
+    currentPlanSha256,
+  );
+  const commentCount = currentComments.comments.length;
 
   if (submission.decision !== "revise" && submission.decision !== "approve" && submission.decision !== "save") {
     throw new Error("Unsupported review decision.");
   }
-  if (!Number.isFinite(Date.parse(submission.submittedAt))) throw new Error("Invalid review submission timestamp.");
+  if (!isIsoDateTime(submission.submittedAt)) throw new Error("Invalid review submission timestamp.");
   if (submission.decision === "revise" && commentCount === 0) {
     throw new Error("A revision request must include at least one comment.");
   }
@@ -187,7 +234,7 @@ async function handleRequest(message) {
       protocolVersion,
       capabilities: { tools: { listChanged: false } },
       serverInfo: { name: SERVER_NAME, version: SERVER_VERSION },
-      instructions: "Use wait_for_plan_review after creating and validating a Codex plan artifact. Keep the current turn open until the user requests a revision or approves the plan.",
+      instructions: "Use wait_for_plan_review after creating and validating a Codex plan artifact. Keep the current turn open until the user requests a revision, approves the plan for implementation, or asks to save it without implementation.",
     });
     return;
   }
@@ -199,7 +246,7 @@ async function handleRequest(message) {
     respond(id, { tools: [{
       name: TOOL_NAME,
       title: "Wait for plan review",
-      description: "Wait for the user to review a Codex plan artifact in VS Code, then return either a revision request with comments or approval. Call this immediately after validating the artifact and do not end the current turn first.",
+      description: "Wait for the user to review a Codex plan artifact in VS Code, then return a revision request, approval to implement, or a request to save without implementation. Call this immediately after validating the artifact and do not end the current turn first.",
       inputSchema: {
         type: "object",
         properties: {

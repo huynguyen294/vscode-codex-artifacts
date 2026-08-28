@@ -44,6 +44,8 @@ button:disabled { cursor: default; opacity: .5; }
 
 .copy-button { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; }
 .copy-button svg { display: block; }
+.copy-button:hover:not(:disabled) { color: var(--vscode-foreground); }
+.copy-button.copied, .copy-button.copied:hover { color: var(--vscode-testing-iconPassed); }
 
 .notice { padding: 9px 24px; border-bottom: 1px solid var(--vscode-panel-border); font-size: 12px; }
 .notice.error { color: var(--vscode-errorForeground); background: var(--vscode-inputValidation-errorBackground); }
@@ -74,7 +76,7 @@ button:disabled { cursor: default; opacity: .5; }
 .comment-meta { display: flex; justify-content: space-between; color: var(--vscode-descriptionForeground); font-size: 11px; }
 .comment-card p { margin: 0; white-space: pre-wrap; font-size: 13px; }
 .icon-button { border: 0; color: var(--vscode-descriptionForeground); background: transparent; font-size: 18px; line-height: 1; }
-.icon-button:hover { color: var(--vscode-errorForeground); }
+.delete-comment-button:hover:not(:disabled) { color: var(--vscode-errorForeground); }
 .loading { display: grid; place-items: center; min-height: 100vh; color: var(--vscode-descriptionForeground); }
 
 @media (max-width: 900px) {

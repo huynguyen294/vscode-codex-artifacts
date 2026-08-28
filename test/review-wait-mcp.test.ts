@@ -12,6 +12,32 @@ function sha256(value: string): string {
 
 const temporaryDirectories: string[] = [];
 const processes: ChildProcessWithoutNullStreams[] = [];
+const planMarkdown = "# Plan\n\nBuild the MCP review bridge.\n";
+
+function reviewComment(id: string, body: string): Record<string, unknown> {
+  return {
+    id,
+    createdAt: new Date().toISOString(),
+    block: { id: "paragraph-001", type: "paragraph", heading: null },
+    selection: {
+      quote: "review bridge",
+      start: 14,
+      end: 27,
+      prefix: "Build the MCP ",
+      suffix: ".",
+    },
+    body,
+  };
+}
+
+function commentsDocument(comments: Record<string, unknown>[]): Record<string, unknown> {
+  return {
+    schemaVersion: 1,
+    artifactId: "plan-mcp-001",
+    planSha256: sha256(planMarkdown),
+    comments,
+  };
+}
 
 async function artifactFixture(): Promise<{
   artifactDirectory: string;
@@ -22,13 +48,9 @@ async function artifactFixture(): Promise<{
   const artifactId = "plan-mcp-001";
   const artifactDirectory = path.join(workspace, ".codex-artifacts", "plans", artifactId);
   await mkdir(artifactDirectory, { recursive: true });
-  const plan = "# Plan\n\nBuild the MCP review bridge.\n";
-  const comments = `${JSON.stringify({
-    schemaVersion: 1,
-    artifactId,
-    planSha256: sha256(plan),
-    comments: [{ id: "comment-001", body: "Add recovery behavior." }],
-  }, null, 2)}\n`;
+  const comments = `${JSON.stringify(commentsDocument([
+    reviewComment("00000000-0000-4000-8000-000000000001", "Add recovery behavior."),
+  ]), null, 2)}\n`;
   await writeFile(path.join(artifactDirectory, "artifact.json"), `${JSON.stringify({
     schemaVersion: 1,
     kind: "plan",
@@ -38,7 +60,7 @@ async function artifactFixture(): Promise<{
     operation: "create",
     origin: { cwd: workspace, threadId: "thread-mcp-001" },
   }, null, 2)}\n`, "utf8");
-  await writeFile(path.join(artifactDirectory, "plan.md"), plan, "utf8");
+  await writeFile(path.join(artifactDirectory, "plan.md"), planMarkdown, "utf8");
   await writeFile(path.join(artifactDirectory, "comments.json"), comments, "utf8");
   return {
     artifactDirectory,
@@ -48,7 +70,7 @@ async function artifactFixture(): Promise<{
       threadId: "thread-mcp-001",
       submittedAt: new Date().toISOString(),
       decision: "revise",
-      planSha256: sha256(plan),
+      planSha256: sha256(planMarkdown),
       commentsSha256: sha256(comments),
     },
   };
@@ -100,9 +122,11 @@ describe("review wait MCP server", () => {
     const client = startClient();
     const initialized = await client.request("initialize", { protocolVersion: "2025-06-18" });
     expect(initialized.serverInfo.name).toBe("codex-artifacts");
+    expect(initialized.instructions).toContain("save");
     client.notify("notifications/initialized");
     const tools = await client.request("tools/list");
     expect(tools.tools[0]).toMatchObject({ name: "wait_for_plan_review" });
+    expect(tools.tools[0].description).toContain("save");
 
     const waiting = client.request("tools/call", {
       name: "wait_for_plan_review",
@@ -136,16 +160,10 @@ describe("review wait MCP server", () => {
     });
     await new Promise((resolve) => setTimeout(resolve, 30));
 
-    const plan = "# Plan\n\nBuild the MCP review bridge.\n";
-    const updatedComments = `${JSON.stringify({
-      schemaVersion: 1,
-      artifactId: "plan-mcp-001",
-      planSha256: sha256(plan),
-      comments: [
-        { id: "comment-001", body: "Add recovery behavior." },
-        { id: "comment-002", body: "Second comment added during review." },
-      ],
-    }, null, 2)}\n`;
+    const updatedComments = `${JSON.stringify(commentsDocument([
+      reviewComment("00000000-0000-4000-8000-000000000001", "Add recovery behavior."),
+      reviewComment("00000000-0000-4000-8000-000000000002", "Second comment added during review."),
+    ]), null, 2)}\n`;
     await writeFile(path.join(fixture.artifactDirectory, "comments.json"), updatedComments, "utf8");
 
     const saveSubmission = {
@@ -154,7 +172,7 @@ describe("review wait MCP server", () => {
       threadId: "thread-mcp-001",
       submittedAt: new Date().toISOString(),
       decision: "save",
-      planSha256: sha256(plan),
+      planSha256: sha256(planMarkdown),
       commentsSha256: sha256(updatedComments),
     };
     await writeFile(
@@ -170,6 +188,42 @@ describe("review wait MCP server", () => {
       decision: "save",
     });
     expect(result.isError).not.toBe(true);
+  });
+
+  it("rejects comments that become invalid while waiting even when the submission hash matches", async () => {
+    const invalidDocuments: Record<string, unknown>[] = [
+      { ...commentsDocument([]), schemaVersion: 2 },
+      { ...commentsDocument([]), artifactId: "another-artifact" },
+      commentsDocument([{ id: "not-a-valid-comment" }]),
+    ];
+
+    for (const invalidDocument of invalidDocuments) {
+      const fixture = await artifactFixture();
+      const client = startClient();
+      await client.request("initialize", { protocolVersion: "2025-06-18" });
+      client.notify("notifications/initialized");
+
+      const waiting = client.request("tools/call", {
+        name: "wait_for_plan_review",
+        arguments: { artifactDirectory: fixture.artifactDirectory },
+      });
+      await new Promise((resolve) => setTimeout(resolve, 30));
+
+      const invalidCommentsRaw = `${JSON.stringify(invalidDocument, null, 2)}\n`;
+      await writeFile(path.join(fixture.artifactDirectory, "comments.json"), invalidCommentsRaw, "utf8");
+      await writeFile(
+        path.join(fixture.artifactDirectory, "review-submission.json"),
+        `${JSON.stringify({
+          ...fixture.submission,
+          decision: "approve",
+          commentsSha256: sha256(invalidCommentsRaw),
+        }, null, 2)}\n`,
+        "utf8",
+      );
+
+      const result = await waiting;
+      expect(result.isError).toBe(true);
+    }
   });
 
   it("rejects artifact directories outside the manifest origin", async () => {
